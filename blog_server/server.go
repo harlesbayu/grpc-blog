@@ -156,21 +156,22 @@ func (*server) DeleteBlog(ctx context.Context, req *blogpb.DeleteBlogRequest) (*
 		)
 	}
 
-	data := &blogItem{}
 	filter := bson.M{"_id": oid}
 
-	res := collection.FindOne(ctx, filter)
-	if err := res.Decode(data); err != nil {
+	res, deleteErr := collection.DeleteOne(ctx, filter)
+
+	if deleteErr != nil {
 		return nil, status.Errorf(
-			codes.NotFound,
-			fmt.Sprintf("Cannot find blog with specified ID: %v", err),
+			codes.Internal,
+			fmt.Sprintf("Cannot delete object in MongoDB: %v", deleteErr),
 		)
 	}
 
-	_, deleteErr := collection.DeleteOne(ctx, filter)
-
-	if deleteErr != nil {
-		log.Fatal(err)
+	if res.DeletedCount == 0 {
+		return nil, status.Errorf(
+			codes.NotFound,
+			fmt.Sprintf("Cannot find blog in MongoDB: %v", deleteErr),
+		)
 	}
 
 	return &blogpb.DeleteBlogResponse{BlogId: oid.Hex()}, nil
